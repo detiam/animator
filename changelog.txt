@@ -1,3 +1,9 @@
+ 2024-08-09 v2.1detiam
+ - Added option to change Sprite Orientation
+ - Added option to set transparent background
+ - GIF generate follow frame step (saving reverse animation)
+ - Reduce GIF size
+ 
  2018-09-10 v2.1
  - implemented saving animation to GIF
  

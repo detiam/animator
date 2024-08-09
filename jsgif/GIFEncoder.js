@@ -5,7 +5,6 @@
   Kevin Weiner (original Java version - kweiner@fmsware.com)
   Thibault Imbert (AS3 version - bytearray.org)
   Johan Nordberg (JS version - code@johan-nordberg.com)
-  detiam (transparent background, reduce gif size - dehe_tian@outlook.com)
 */
 
 function ByteArray() {
