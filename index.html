@@ -8,7 +8,6 @@
         <script type="text/javascript" src="jsgif/LZWEncoder.js"></script>
         <script type="text/javascript" src="jsgif/NeuQuant.js"></script>
         <script type="text/javascript" src="jsgif/GIFEncoder.js"></script>
-        <script type="text/javascript" src="jsgif/b64.js"></script>
     </head>
     <body onLoad="setInterval(Update, 16);" style="text-align:center;">
         <h1 style="margin-bottom:5px;">Sprite Sheet Animator</h1>
@@ -55,6 +54,7 @@
             <br/>
             <input type='button' id="gif" value="Generate GIF"/> 
             <input type='checkbox' id="gifloop" checked="checked"/> Loop  
+            <input type='checkbox' id="giftransparent" checked="checked"/> Transparent  
             Quality: <input type='number' id="gifquality" size="3" max="255" value="1" style="width:50px;"/> (1=best  255=worst)<br/>  
             <input type='checkbox' id="gifshow" checked="checked"/> Show Gif (direct download might be blocked by some browsers)
             <br/>        
@@ -74,6 +74,7 @@
         <br/>  
         <div id="debug"></div>
         <div id="about">Made by InanZen. Licence: CC0. Download and run localy: <a href="SpriteSheetAnimator_v2.1.zip">SpriteSheetAnimator_v2.1.zip</a></div>
+        <script type="text/javascript" src="b64.js"></script>
         <script type="text/javascript" src="animator.js"></script>
     </body>
 </html>

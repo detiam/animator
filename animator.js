@@ -18,7 +18,7 @@ var sheet_padding_right = 0;
 var sheet_spacing_vertical = 0;
 var sheet_spacing_horizontal = 0;
 var canvas = document.getElementById("imgCanvas");
-var canvas_context = canvas.getContext("2d");
+var canvas_context = canvas.getContext("2d", { willReadFrequently: true });
 var image_background_color = "white";
 var border_bool = true;
 var image_src = "";
@@ -26,6 +26,7 @@ var ui_slider = true;
 var ui_framenum = true;
 var ui_framecontrols = true;
 var gif_loop = true;
+var gif_transparent = true;
 var gif_quality = 1;
 var gif_show = true;
 
@@ -133,6 +134,7 @@ function SaveSettings()
     localStorage["uiFN"] = $("#uiFrameNum").is(':checked');
     localStorage["uiFC"] = $("#uiFrameControls").is(':checked');
     localStorage["gifLoop"] = gif_loop;
+    localStorage["gifTransparent"] = gif_transparent;
     localStorage["gifShow"] = gif_show;
     localStorage["gifQuality"] = gif_quality;
 }
@@ -172,6 +174,8 @@ function ReadSettings()
         ui_framecontrols = (localStorage["uiFC"] == 'true');
     if (localStorage.getItem("gifLoop") != null)
         gif_loop = (localStorage["gifLoop"] == 'true');
+    if (localStorage.getItem("gifTransparent") != null)
+        gif_transparent = (localStorage["gifTransparent"] == 'true');
     if (localStorage.getItem("gifShow") != null)
         gif_show = (localStorage["gifShow"] == 'true');
     if (localStorage.getItem("gifQuality") != null)
@@ -254,6 +258,7 @@ function AssignSettings()
     $("#uiFrameNum").prop("checked", ui_framenum);  
     $("#uiFrameControls").prop("checked", ui_framecontrols);  
     $("#gifloop").prop("checked", gif_loop);  
+    $("#giftransparent").prop("checked", gif_transparent);
     $("#gifshow").prop("checked", gif_show);   
     $("#gifquality").val(gif_quality); 
     
@@ -279,13 +284,16 @@ function AssignSettings()
 function GenerateGif()
 {
     var encoder = new GIFEncoder(); 
+    if (gif_transparent)
+        encoder.setTransparent(image_background_color);
     if (gif_loop)
         encoder.setRepeat(0);  //0 - loop forever   n - loop n times then stop
     else
         encoder.setRepeat(1);
     encoder.setDelay(frame_time_total); 
     encoder.setQuality(gif_quality); //1=best  
-    
+    //encoder.setDither(true);
+
     var curframe = frame_index_current; 
     encoder.start();
     for (var i = 0; i < frame_index_count; i++)
@@ -458,6 +466,9 @@ $(document).ready(function(){
     $("#gifloop").click(function(){
         gif_loop = $("#gifloop").is(':checked');
     });
+    $("#giftransparent").click(function(){
+        gif_transparent = $("#giftransparent").is(':checked');
+    });
     $("#gifshow").click(function(){
         gif_show = $("#gifshow").is(':checked');
         if (gif_show)
@@ -487,6 +498,7 @@ $(document).ready(function(){
     ui_framenum = $("#uiFrameNum").is(":checked");
     ui_framecontrols = $("#uiFrameControls").is(":checked");
     gif_loop = $("#gifloop").is(":checked");
+    gif_transparent = $("#giftransparent").is(":checked");
     gif_show = $("#gifshow").is(":checked");
     gif_quality = parseInt($("#gifquality").val());    
     

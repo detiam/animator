@@ -5,6 +5,7 @@
   Kevin Weiner (original Java version - kweiner@fmsware.com)
   Thibault Imbert (AS3 version - bytearray.org)
   Johan Nordberg (JS version - code@johan-nordberg.com)
+  detiam (transparent background, reduce gif size - dehe_tian@outlook.com)
 */
 
 function ByteArray() {
@@ -31,7 +32,7 @@ ByteArray.prototype.getData = function() {
       rv += ByteArray.charMap[this.pages[p][i]];
     }
   }
-  return rv;
+  return rv.replace(/[\x00]+$/, '');
 };
 
 ByteArray.prototype.writeByte = function(val) {
@@ -76,12 +77,26 @@ function GIFEncoder(width, height) {
   this.palSize = 7; // color table size (bits-1)
   this.dispose = -1; // disposal code (-1 = use default)
   this.firstFrame = true;
+	this.sizeSet = false; // if false, get size from first frame
   this.sample = 10; // default sample interval for quantizer
   this.dither = false; // default dithering
   this.globalPalette = false;
 
   this.out = new ByteArray();
 }
+
+/*
+  Sets the GIF frame size
+*/
+
+GIFEncoder.prototype.setSize = function(w, h) {
+  if (!this.firstFrame) return;
+  this.width = w;
+  this.height = h;
+  if (this.width < 1) this.width = 320;
+  if (this.height < 1) this.height = 240;
+  this.sizeSet = true;
+};
 
 /*
   Sets the delay time between each frame, or changes it for subsequent frames
@@ -131,7 +146,17 @@ GIFEncoder.prototype.setRepeat = function(repeat) {
   indicate no transparent color.
 */
 GIFEncoder.prototype.setTransparent = function(color) {
-  this.transparent = color;
+  const standardize_color =  function(str) {
+    var ctx = document.createElement("canvas").getContext("2d");
+    ctx.fillStyle = str;
+    return ctx.fillStyle;
+  }
+
+  if (typeof color === 'string') {
+    this.transparent = standardize_color(color).replace(/^#/, '0x');
+  } else {
+    this.transparent = color;
+  }
 };
 
 /*
@@ -139,8 +164,32 @@ GIFEncoder.prototype.setTransparent = function(color) {
   actually deferred until the next frame is received so that timing
   data can be inserted.  Invoking finish() flushes all frames.
 */
-GIFEncoder.prototype.addFrame = function(imageData) {
-  this.image = imageData;
+GIFEncoder.prototype.addFrame = function(im, is_imageData) {
+  if ((im === null) || this.out === null) {
+    throw new Error("no init??");
+  };
+
+  if (!is_imageData) {
+    this.image = im.getImageData(0, 0, im.canvas.width, im.canvas.height).data;
+    if (!this.sizeSet) this.setSize(im.canvas.width, im.canvas.height);
+  } else {
+    if(im instanceof ImageData) {
+      this.image = im.data;
+      if(!this.sizeset || this.width!=im.width || this.height!=im.height) {
+        this.setSize(im.width,im.height);
+      } else {
+        throw new Error('what??');
+      }
+    } else if(im instanceof Uint8ClampedArray) {
+      if(im.length==(this.width*this.height*4)) {
+        this.image=im;
+      } else {
+        throw new Error("Please set the correct size: ImageData length mismatch");
+      }
+    } else {
+      throw new Error("Please provide correct input");
+    }
+  };
 
   this.colorTab = this.globalPalette && this.globalPalette.slice ? this.globalPalette : null;
 
@@ -221,7 +270,7 @@ GIFEncoder.prototype.getGlobalPalette = function() {
 /*
   Writes GIF file header
 */
-GIFEncoder.prototype.writeHeader = function() {
+GIFEncoder.prototype.start = function() {
   this.out.writeUTFBytes("GIF89a");
 };
 
@@ -248,7 +297,9 @@ GIFEncoder.prototype.analyzePixels = function() {
 
   // get closest match to transparent color if specified
   if (this.transparent !== null) {
-    this.transIndex = this.findClosest(this.transparent, true);
+    this.transIndex = this.findClosest(this.transparent, false);
+  } else {
+    this.transIndex = 0;
   }
 };
 
@@ -454,7 +505,8 @@ GIFEncoder.prototype.writeGraphicCtrlExt = function() {
   );
 
   this.writeShort(this.delay); // delay x 1/100 sec
-  this.out.writeByte(this.transIndex); // transparent color index
+  if (this.transIndex !== null)
+    this.out.writeByte(this.transIndex); // transparent color index
   this.out.writeByte(0); // block terminator
 };
 
@@ -547,3 +599,31 @@ GIFEncoder.prototype.writePixels = function() {
 GIFEncoder.prototype.stream = function() {
   return this.out;
 };
+
+/*
+  Downloads encoded GIF
+*/
+GIFEncoder.prototype.download = function(filename) {
+  filename = filename !== undefined ? (
+    filename.endsWith(".gif")? filename: filename+".gif" 
+  ): "download.gif";
+
+  const strip = (array) => {
+    let endIndex = array.length;
+    while (endIndex > 0 && array[endIndex - 1] === 0) {endIndex--}
+    return new Uint8Array(array.buffer, array.byteOffset, endIndex);
+  };
+
+  try {
+    var templink = document.createElement("a");
+    templink.download = filename;
+    templink.href = URL.createObjectURL(new Blob([
+      strip(Uint8Array.from(this.out.pages.flatMap(
+        function(page){return Array.from(page)}
+      )))
+    ], {type : "image/gif" }));
+    templink.click();
+  } catch (err) {
+    console.log('download(): ', err)
+  };
+}
