@@ -1,7 +1,8 @@
 var image_element = document.getElementById("image");
 var image_file_width = 0;
 var image_file_height = 0;
-var sheet_sprite_count_x;
+var sheet_sprite_orientation='horizontal';
+var sheet_sprite_count;
 var sheet_sprite_width;
 var sheet_sprite_height;
 var frame_index_current = 0;
@@ -55,17 +56,20 @@ function Update()
 function UpdateSprite()
 {
     // frame_index_current = 0 based index
-    var x = (frame_index_start + frame_index_current) % sheet_sprite_count_x;
-    var y = parseInt((frame_index_start + frame_index_current) / sheet_sprite_count_x);
+    var x = (frame_index_start + frame_index_current) % sheet_sprite_count;
+    var y = parseInt((frame_index_start + frame_index_current) / sheet_sprite_count);
+
+    if (sheet_sprite_orientation === 'vertical')
+        x = [y,y=x][0] // swap
 
     // sprite position on sheet in pixels
     var spritePosX = x * sheet_sprite_width + sheet_padding_left + x * sheet_spacing_horizontal;
-    var spritePosY =  y * sheet_sprite_height + sheet_padding_top + y * sheet_spacing_vertical;
+    var spritePosY = y * sheet_sprite_height + sheet_padding_top + y * sheet_spacing_vertical;
 
-    $("#imgInfo").text("Frame: "+(frame_index_current + frame_index_start + 1));
+    $("#imgInfo").text("Frame: " + (frame_index_current + frame_index_start + 1));
 
     canvas_context.clearRect(0, 0, canvas.width, canvas.height);
-    
+
     canvas_context.imageSmoothingEnabled = false;
     canvas_context.webkitImageSmoothingEnabled = false;
     canvas_context.mozImageSmoothingEnabled = false;
@@ -87,14 +91,23 @@ function LoadImageFromDisk(input) {
     }
 }
 function UpdateCanvasSize()
-{    
-    var wMinusPadL = image_file_width - sheet_padding_left;
-    sheet_sprite_count_x = Math.floor(wMinusPadL / (sheet_sprite_width + sheet_spacing_horizontal));
-    sheet_padding_right = wMinusPadL - sheet_sprite_count_x * sheet_sprite_width - (sheet_sprite_count_x - 1) * sheet_spacing_horizontal;
-    if (sheet_padding_right >= sheet_sprite_width + sheet_spacing_horizontal)
-    {
-        sheet_sprite_count_x = sheet_sprite_count_x + 1;
-        sheet_padding_right = sheet_padding_right - sheet_sprite_width - sheet_spacing_horizontal;
+{
+    if (sheet_sprite_orientation === 'vertical') {
+        var hMinusPadT = image_file_height - sheet_padding_top;
+        sheet_sprite_count = Math.floor(hMinusPadT / (sheet_sprite_height + sheet_spacing_vertical));
+        sheet_padding_bottom = hMinusPadT - sheet_sprite_count * sheet_sprite_height - (sheet_sprite_count - 1) * sheet_spacing_vertical;
+        if (sheet_padding_bottom >= sheet_sprite_height + sheet_spacing_vertical) {
+            sheet_sprite_count = sheet_sprite_count + 1;
+            sheet_padding_bottom = sheet_padding_bottom - sheet_sprite_height - sheet_spacing_vertical;
+        }
+    } else {
+        var wMinusPadL = image_file_width - sheet_padding_left;
+        sheet_sprite_count = Math.floor(wMinusPadL / (sheet_sprite_width + sheet_spacing_horizontal));
+        sheet_padding_right = wMinusPadL - sheet_sprite_count * sheet_sprite_width - (sheet_sprite_count - 1) * sheet_spacing_horizontal;
+        if (sheet_padding_right >= sheet_sprite_width + sheet_spacing_horizontal) {
+            sheet_sprite_count = sheet_sprite_count + 1;
+            sheet_padding_right = sheet_padding_right - sheet_sprite_width - sheet_spacing_horizontal;
+        }
     }
 
     $("#imgCanvas").attr("width", sheet_sprite_width * zoom_factor);
@@ -118,6 +131,7 @@ function SetFrameStep(step)
 function SaveSettings()
 {           
     localStorage["img"] =  encodeURIComponent($("#image").attr("src"));
+    localStorage["sO"] = sheet_sprite_orientation;
     localStorage["sW"] = sheet_sprite_width;
     localStorage["sH"] = sheet_sprite_height;
     localStorage["fC"] = frame_index_count;
@@ -142,6 +156,8 @@ function ReadSettings()
 {      
     if (localStorage.getItem("img") != null)
         image_src = decodeURIComponent(localStorage["img"]);
+    if (localStorage.getItem("sO") != null)
+        sheet_sprite_orientation = localStorage["sO"]; 
     if (localStorage.getItem("sW") != null)
         sheet_sprite_width = parseInt(localStorage["sW"]); 
     if (localStorage.getItem("sH") != null) 
@@ -191,6 +207,9 @@ function ReadSettings()
         {
             case "img":
                 image_src = ParameterName[1];
+                break;
+            case "sO":
+                sheet_sprite_orientation = ParameterName[1];
                 break;
             case "sW":
                 sheet_sprite_width = parseInt(ParameterName[1]);
@@ -242,6 +261,7 @@ function ReadSettings()
 }
 function AssignSettings()
 {
+    $("#spriteO").val(sheet_sprite_orientation);
     $("#spriteW").val(sheet_sprite_width);
     $("#spriteH").val(sheet_sprite_height);
     $("#frameTime").val(frame_time_total);
@@ -294,14 +314,21 @@ function GenerateGif()
     encoder.setQuality(gif_quality); //1=best  
     //encoder.setDither(true);
 
+    const addFrameLoop = function(start, end, step) {
+        for (var i = start; i !== end; i += step) {
+            frame_index_current = i;
+            UpdateSprite();
+            encoder.addFrame(canvas_context);
+        };
+    };
+    
     var curframe = frame_index_current; 
     encoder.start();
-    for (var i = 0; i < frame_index_count; i++)
-    {
-        frame_index_current = i;
-        UpdateSprite();
-        encoder.addFrame(canvas_context);
-    }
+    if (frame_step === -1) {
+        addFrameLoop(frame_index_count -1, -1, -1);
+    } else {
+        addFrameLoop(0, frame_index_count, 1);
+    };
     encoder.finish();    
     frame_index_current = curframe;
     UpdateSprite();
@@ -341,6 +368,11 @@ $(document).ready(function(){
         frame_index_current = 0;        
         $("#frameSlider").slider('value',frame_index_current + 1); //update slider
     });
+    $("#spriteO").change(function()
+    {
+        sheet_sprite_orientation = $("#spriteO").val();
+        UpdateCanvasSize();
+    });
     $("#spriteW").change(function()
     {
         sheet_sprite_width = parseInt($("#spriteW").val()); 
@@ -379,7 +411,12 @@ $(document).ready(function(){
     });   
     $("#generate").click(function()
     {        
-        var link = window.location.href.split('?')[0] + "?sW="+sheet_sprite_width+"&sH="+sheet_sprite_height+"&fC="+frame_index_count+"&fT="+frame_time_total;
+        var link = window.location.href.split('?')[0]
+        link += "?sO="+sheet_sprite_orientation;
+        link += "&sW="+sheet_sprite_width;
+        link += "&sH="+sheet_sprite_height;
+        link += "&fC="+frame_index_count;
+        link += "&fT="+frame_time_total;
         link += "&c="+image_background_color;    
         link += "&zoom="+zoom_factor;     
         link += "&fS="+ (frame_index_start);  
@@ -487,6 +524,7 @@ $(document).ready(function(){
     frame_time_total = parseInt($("#frameTime").val());
     frame_index_count = parseInt($("#frameCount").val());
     frame_index_start = parseInt($("#frameStart").val()) - 1; // 1 based index (UI) to 0 based index (logic)
+    sheet_sprite_orientation = $("#spriteO").val();
     sheet_sprite_width = parseInt($("#spriteW").val());
     sheet_sprite_height = parseInt($("#spriteH").val());
     zoom_factor = parseInt($("#zoom").val());    
